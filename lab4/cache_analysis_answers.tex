@@ -1,0 +1,185 @@
+\documentclass{article}\\
+\usepackage{amsmath}\\
+\usepackage{geometry}\\
+
+\geometry{a4paper, margin=1in}\\
+
+\begin{document}\\
+
+\section*{Part 1}\\
+
+Configure the Cache Size to 512 bytes, the Block Size to 4 bytes, the Mapping to ``direct mapping'' and run the program. Look at the statistics and answer the following questions:\\
+
+\begin{enumerate}\\
+    \item What is the hit rate? Why do we see this value?\\
+    
+    Hit rate = 0\%\\
+    
+    The program jumps 16 bytes each time.\\
+    When we try to reuse data, it's already been replaced\\
+    because the same locations keep getting used.\\
+
+    \item How many misses do we have in total? How many of them are compulsory misses? Explain your answer.\\
+    
+    Total misses = 2560\\
+    Compulsory misses = 256\\
+    Conflict misses = 2304\\
+    
+    Our array has 256 numbers in it.\\
+    We access each number 10 times, so 2560 total accesses.\\
+    First time we read each number, it must miss (256 misses).\\
+    Every other time misses too because data keeps getting replaced.\\
+
+    \item Change the block size from 4 bytes to 8 bytes but keep the cache size to 512 bytes (reduce the number of blocks accordingly). How are the compulsory misses affected when Block Size is changed from 4 bytes to 8 bytes? Is there any change, why/why not?
+    
+    Hit rate improves to 50\%\\
+    
+    Now each block can hold two numbers instead of one.\\
+    This means we need fewer blocks to load all the data.\\
+
+    \item Change the block size back to 4 again, and change the mapping from ``direct mapping'' to ``2-ways set associative''? Cache size should be 512 bytes again, change the number of blocks accordingly. Is there any change, why/why not?
+    
+    Hit rate = 0\%\\
+    
+    Even with two choices for where to put data,\\
+    we still keep replacing the numbers we need\\
+    because we jump by 16 bytes each time.\\
+
+    \item With the block size of 4, experiment with different cache sizes by changing the number of blocks. Try with both ``direct mapping'' and ``2-ways set associative''. How the hit rate is improved? At which point changing the cache size does not affect the hit rate?
+    
+    Cache size = 512 bytes (128 blocks): 0\% hit rate \\
+    Cache size = 1024 bytes (256 blocks): 90\% hit rate \\
+    Cache size = 2048 bytes (512 blocks): 90\% hit rate \\
+    
+    For 2-way set associative:\\
+    Cache size = 512 bytes (128 blocks): 0\% hit rate \\
+    Cache size = 1024 bytes (256 blocks): 90\% hit rate \\
+    Cache size = 2048 bytes (512 blocks): 90\% hit rate \\
+
+    I did not see the hit rate in the simulator when increasing to 256 blocks but it should only be initial misses \\
+    so I assume it is 90\% hit rate. \\ 
+    Hit rate gets better at 1024 bytes because the 256 blocks are enough to hold all our data.\\
+    Making it bigger doesn't help anymore.\\
+
+    \item At this ``optimal'' cache size (question 5) with the ``direct mapping'' option, what hit rates do you obtain by changing the block size? Try \& report the hit rates with the sizes 4 bytes, 8 bytes and 16 bytes (you should keep cache size the same).\\
+    
+    4-byte blocks: 90\% hit rate\\
+    8-byte blocks: 95\% hit rate\\
+    16-byte blocks: 97.5\% hit rate\\
+
+    \item Show how the achieved hit rate (as shown by simulator) can be computed (by hand) for different block sizes for the ``optimal'' cache size you found in question 5. Hint: what is the size of a single element in the array?\\
+    
+    Given:\\
+    Cache size = 1024 bytes (optimal from question 5)\\
+    Array size = 256 words (1024 bytes)\\
+    Element size = 1 word (4 bytes)\\
+    Number of elements = 256\\
+    Program jumps: 16 bytes each time (addi \$t0, \$t0, 16)\\
+    Each element accessed 10 times\\
+    Total accesses = 256 × 10 = 2560\\
+    
+    Direct Mapping:\\
+    
+    For 1-word blocks:\\
+    Cache size = 1024 bytes\\
+    Each block can hold 1 number\\
+    We have 256 blocks\\
+    First time loading needs 256 misses\\
+    Because we jump 16 bytes, we keep missing\\
+    All 2560 accesses miss\\
+    Hit rate = (2560 - 2560)/2560 = 0\%\\
+    
+    For 2-word blocks:\\
+    Cache size = 1024 bytes\\
+    Each block can hold 2 numbers\\
+    We have 128 blocks\\
+    First time loading needs 128 misses\\
+    We jump by 16 bytes (every 2nd block)\\
+    After first load, numbers stay in cache\\
+    Total misses = 128\\
+    Hit rate = (2560 - 128)/2560 = 95\%\\
+    
+    For 4-word blocks:\\
+    Cache size = 1024 bytes with 64 blocks\\
+    Each block can hold 4 numbers\\
+    We have 64 blocks\\
+    First time loading needs 64 misses\\
+    Our 16-byte jumps match block size perfectly\\
+    Numbers stay in cache after first load\\
+    Total misses = 64 (only compulsory misses remain)\\
+    Hit rate = (2560 - 64)/2560 = 0.975 = 97.5%
+
+\end{enumerate}
+
+\section*{Part 2}
+
+Rewrite the program in such a way that all the elements in the array are accessed sequentially i.e. in a good loop ordering or row major ordering. Configure the Cache Size to 512 bytes, the Block Size to 4 bytes, the Mapping to ``direct mapping'' and run the program. Look at the statistics and answer the following questions.
+
+\begin{enumerate}
+    \item Does the hit rate improve? Why? (show computation)
+    
+    Computation:\\
+    Cache size = 512 bytes\\
+    Block size = 8 bytes (2 words)\\
+    Number of blocks = 512/8 = 64 blocks\\
+    Each block can hold 2 numbers in a row\\
+    We need 128 blocks for all 256 numbers\\
+    Total accesses = 256 × 10 = 2560\\
+    Our cache can only hold half the blocks we need:\\
+    First access to all blocks: 128 misses\\
+    Need to reload blocks each iteration: 128 misses\\
+    Total misses = 128 + (9 × 128) = 1280\\
+    Hit rate = (2560 - 1280)/2560 = 50\%
+
+    \item Change the Block Size to 16 bytes (keep the cache size the same, 512 bytes). Does the hit rate improve? Why? (show computation)
+    
+    Computation:\\
+    Cache size = 512 bytes\\
+    Block size = 16 bytes (4 words)\\
+    Number of blocks = 512/16 = 32 blocks\\
+    Each block can hold 4 numbers in a row\\
+    We need 64 blocks for all 256 numbers\\
+    Total accesses = 2560\\
+    First time loading needs 64 misses\\
+    Need to reload everything each time: 64 misses\\
+    Total misses = 64 + (9 × 64) = 640\\
+    Hit rate = (2560 - 640)/2560 = 75\%
+
+    \item Change the Cache Size to 1024 bytes and Reset the Block Size to 8 bytes. What is the hit rate? Compute this hit rate by hand.
+    
+    Computation:\\
+    Cache size = 1024 bytes\\
+    Block size = 8 bytes (2 words)\\
+    Number of blocks = 1024/8 = 128 blocks\\
+    Each block can hold 2 numbers in a row\\
+    We need 128 blocks for all numbers\\
+    Total accesses = 2560\\
+    Cache is big enough for all blocks\\
+    Only miss first time loading: 128 misses\\
+    Total misses = 128\\
+    Hit rate = (2560 - 128)/2560 = 95\%
+
+    \item Change Block Size to 16 bytes (cache size is 1024 bytes now). What is the hit rate? Compute this hit rate by hand.
+    
+    Computation:\\
+    Cache size = 1024 bytes\\
+    Block size = 16 bytes (4 words)\\
+    Number of blocks = 1024/16 = 64 blocks\\
+    Each block can hold 4 numbers in a row\\
+    We need 64 blocks for all numbers\\
+    Total accesses = 2560\\
+    Cache is big enough for all blocks\\
+    Only miss first time loading: 64 misses\\
+    Total misses = 64\\
+    Hit rate = (2560 - 64)/2560 = 97.5\%
+
+    \item Can a perfect hit rate of 1.0 be achieved without changing the program? Why?
+    
+    Perfect hit rate cannot be achieved because we always \\
+    miss the first access to each block. Larger block sizes\\
+    improve hit rate by reducing number of compulsory misses. This is assuming \\
+    that the cache is empty when the program starts.
+
+\end{enumerate}
+
+\end{document} 

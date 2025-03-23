@@ -1,0 +1,343 @@
+\documentclass{article}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+
+\geometry{margin=1in}
+
+\lstset{
+    basicstyle=\ttfamily,
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    numbers=left,
+    numberstyle=\tiny,
+    numbersep=5pt,
+    frame=single,
+    breaklines=true
+}
+
+\title{Improving Loop Ordering in MIPS Assembly}
+\author{Loop Optimization Analysis}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Overview}
+This document explains the modifications made to improve the loop ordering in a MIPS assembly program that sums array elements. The original program used an inefficient memory access pattern, while the modified version implements row-major ordering for better performance.
+
+\section{Computer Architecture Background}
+
+\subsection{Memory Hierarchy}
+Modern computer systems implement a memory hierarchy to bridge the speed gap between fast processors and relatively slow main memory:
+\begin{itemize}
+    \item CPU registers (fastest, smallest)
+    \item L1 cache (very fast, small)
+    \item L2 cache (fast, medium)
+    \item Main memory (slow, large)
+\end{itemize}
+
+\subsection{Cache Organization}
+\begin{itemize}
+    \item Data is transferred between memory levels in fixed-size blocks called cache lines
+    \item Typical cache line sizes range from 32 to 128 bytes
+    \item When a byte is accessed, the entire cache line containing it is brought into cache
+\end{itemize}
+
+\subsection{Locality Principles}
+Two key principles govern efficient memory access:
+\begin{itemize}
+    \item Temporal Locality: Recently accessed items are likely to be accessed again soon
+    \item Spatial Locality: Items physically stored close to each other tend to be accessed close together in time
+\end{itemize}
+
+\subsection{Memory Access Patterns}
+\begin{itemize}
+    \item Sequential access (stride-1): Best pattern, maximizes spatial locality
+    \item Strided access: Less efficient, may cause more cache misses
+    \item Random access: Worst pattern, minimal locality
+\end{itemize}
+
+\subsection{Row-Major vs Column-Major Order}
+In multi-dimensional arrays:
+\begin{itemize}
+    \item Row-major order (used in C/C++): Elements in a row are stored contiguously
+    \item Column-major order (used in Fortran): Elements in a column are stored contiguously
+    \item Accessing arrays in the same order as they are stored in memory maximizes cache efficiency
+\end{itemize}
+
+\subsection{Impact on Performance}
+Poor memory access patterns can lead to:
+\begin{itemize}
+    \item Cache misses: CPU must wait for data to be fetched from slower memory
+    \item Cache pollution: Useful data being evicted by less frequently used data
+    \item Memory bandwidth wastage: Loading cache lines that are only partially used
+    \item TLB (Translation Lookaside Buffer) misses: Additional overhead in virtual memory translation
+\end{itemize}
+
+\section{Key Changes}
+
+\subsection{Loop Structure}
+The original program had a complex three-level nested loop structure:
+\begin{itemize}
+    \item An outer loop that counted to 10 iterations
+    \item A middle loop that handled index offsets in increments of 4
+    \item An inner loop that accessed memory in strides of 16 bytes
+\end{itemize}
+
+The new version simplifies this to two loops:
+\begin{itemize}
+    \item An outer loop that counts 10 iterations
+    \item An inner loop that sequentially accesses every element
+\end{itemize}
+
+\subsection{Memory Access Pattern}
+\subsubsection{Original Version}
+The original code:
+\begin{itemize}
+    \item Used a stride of 16 bytes (addi \$t0, \$t0, 16)
+    \item Required additional index calculations (\$t6)
+    \item Accessed memory in a non-sequential pattern
+\end{itemize}
+
+\subsubsection{Improved Version}
+The new code:
+\begin{itemize}
+    \item Uses sequential access with 4-byte increments (addi \$t0, \$t0, 4)
+    \item Eliminates complex index calculations
+    \item Follows natural memory layout (row-major order)
+\end{itemize}
+
+\section{Register Usage Optimization}
+\begin{itemize}
+    \item Removed \$t6 and \$t7 registers that were used for complex indexing
+    \item Simplified register usage to:
+    \begin{itemize}
+        \item \$t0: Current array address
+        \item \$t1: End address
+        \item \$t2: Running sum
+        \item \$t3: Current array element
+        \item \$t4: Iteration counter
+        \item \$t5: Maximum iterations
+    \end{itemize}
+\end{itemize}
+
+\section{Performance Benefits}
+
+\subsection{Cache Efficiency}
+The new version provides better cache utilization because:
+\begin{itemize}
+    \item Sequential memory access patterns are more cache-friendly
+    \item Reduces cache misses by following spatial locality principles
+    \item Better prefetching opportunities for the hardware
+\end{itemize}
+
+\subsection{Computational Efficiency}
+The improved version:
+\begin{itemize}
+    \item Reduces the number of instructions executed
+    \item Eliminates unnecessary address calculations
+    \item Simplifies control flow logic
+\end{itemize}
+
+\section{Conclusion}
+The modifications result in a more efficient program that:
+\begin{itemize}
+    \item Is easier to understand and maintain
+    \item Makes better use of the memory hierarchy
+    \item Reduces computational overhead
+    \item Follows best practices for array traversal
+\end{itemize}
+
+The improved version maintains the same functionality while providing better performance characteristics through proper row-major ordering and simplified control flow.
+
+\section{Cache Performance Analysis}
+
+\subsection{Cache Configuration Analysis}
+Let's analyze how different cache configurations affect the hit rate. For all calculations:
+\begin{itemize}
+    \item Total array size = 1024 bytes
+    \item Each element = 4 bytes
+    \item Program reads each element 10 times
+    \item Total memory accesses = (1024/4) × 10 = 2560 accesses
+\end{itemize}
+
+\subsection{Original Configuration (512B cache, 4B blocks)}
+\begin{itemize}
+    \item Number of blocks = 512/4 = 128 blocks
+    \item First access to each element is a miss
+    \item Subsequent 9 accesses could be hits if the block remains in cache
+    \item Total misses = 256 (one miss per element)
+    \item Hit rate = (2560 - 256)/2560 = 0.9 or 90\%
+\end{itemize}
+
+\subsection{512B cache, 8B blocks}
+\begin{itemize}
+    \item Number of blocks = 512/8 = 64 blocks
+    \item Each block contains 2 elements
+    \item First access to each block is a miss
+    \item Total misses = 128 (one miss per block)
+    \item Hit rate = (2560 - 128)/2560 = 0.95 or 95\%
+    \item Improvement due to spatial locality: when one element is loaded, its neighbor is also loaded
+\end{itemize}
+
+\subsection{512B cache, 16B blocks}
+\begin{itemize}
+    \item Number of blocks = 512/16 = 32 blocks
+    \item Each block contains 4 elements
+    \item First access to each block is a miss
+    \item Total misses = 64 (one miss per block)
+    \item Hit rate = (2560 - 64)/2560 = 0.975 or 97.5\%
+    \item Further improvement due to better spatial locality exploitation
+\end{itemize}
+
+\subsection{1024B cache, 4B blocks}
+\begin{itemize}
+    \item Number of blocks = 1024/4 = 256 blocks
+    \item Can hold entire array in cache
+    \item Misses only on first access to each element
+    \item Total misses = 256 (one miss per element)
+    \item Hit rate = (2560 - 256)/2560 = 0.9 or 90\%
+    \item Same hit rate as 512B cache because block size is the limiting factor
+\end{itemize}
+
+\subsection{1024B cache, 8B blocks}
+\begin{itemize}
+    \item Number of blocks = 1024/8 = 128 blocks
+    \item Each block contains 2 elements
+    \item Total misses = 128 (one miss per block)
+    \item Hit rate = (2560 - 128)/2560 = 0.95 or 95\%
+    \item Improvement due to spatial locality
+\end{itemize}
+
+\subsection{1024B cache, 16B blocks}
+\begin{itemize}
+    \item Number of blocks = 1024/16 = 64 blocks
+    \item Each block contains 4 elements
+    \item Total misses = 64 (one miss per block)
+    \item Hit rate = (2560 - 64)/2560 = 0.975 or 97.5\%
+    \item Best performance due to largest block size
+\end{itemize}
+
+\subsection{Perfect Hit Rate Analysis}
+A perfect hit rate of 1.0 cannot be achieved without modifying the program because:
+\begin{itemize}
+    \item First access to any memory location will always be a miss
+    \item Cold misses (compulsory misses) are unavoidable
+    \item Even with a cache large enough to hold the entire array:
+    \begin{itemize}
+        \item First iteration will have misses
+        \item Subsequent iterations will be hits
+        \item Best possible hit rate = (Total accesses - First access misses)/Total accesses
+    \end{itemize}
+    \item To achieve a perfect hit rate, the program would need to:
+    \begin{itemize}
+        \item Prefetch all data before it's needed
+        \item Or implement a warm-up phase before the actual computation
+    \end{itemize}
+\end{itemize}
+
+\subsection{Key Observations}
+\begin{itemize}
+    \item Larger block sizes improve hit rate due to spatial locality
+    \item Cache size matters less than block size for this access pattern
+    \item Sequential access pattern helps maximize benefit of larger blocks
+    \item Cold misses prevent achieving perfect hit rate without program modification
+\end{itemize}
+
+\section{Cache Performance Comparison}
+
+\subsection{Part 1: Original Program Analysis (Bad Loop Ordering)}
+With the original program using non-sequential access:
+
+\subsubsection{512B Cache, 4B Blocks, Direct Mapping}
+\begin{itemize}
+    \item Hit rate = 0\%
+    \item Total misses = 2560 (all accesses miss)
+    \item Reason: Strided access pattern (16-byte stride) causes conflict misses
+    \item Each element maps to the same cache location due to direct mapping
+    \item Even though cache can hold 128 blocks, stride causes continuous eviction
+\end{itemize}
+
+\subsubsection{512B Cache, 8B Blocks, Direct Mapping}
+\begin{itemize}
+    \item Hit rate remains 0\%
+    \item Compulsory misses reduced to 320 (2560/8)
+    \item Still suffers from conflict misses due to strided access
+    \item Larger block size doesn't help because access pattern skips blocks
+\end{itemize}
+
+\subsubsection{512B Cache, 4B Blocks, 2-Way Set Associative}
+\begin{itemize}
+    \item Hit rate remains 0\%
+    \item Even with set associativity, stride causes conflicts
+    \item Access pattern defeats both spatial locality and set associativity benefits
+\end{itemize}
+
+\subsection{Part 2: Optimized Program Analysis (Row-Major Order)}
+
+\subsubsection{512B Cache, 4B Blocks, Direct Mapping}
+\begin{itemize}
+    \item Hit rate = 90\%
+    \item Total accesses = 2560 (256 elements × 10 iterations)
+    \item Compulsory misses = 256 (one per unique element)
+    \item Computation: (2560 - 256)/2560 = 0.9
+    \item Significant improvement due to sequential access pattern
+\end{itemize}
+
+\subsubsection{512B Cache, 8B Blocks, Direct Mapping}
+\begin{itemize}
+    \item Hit rate = 95\%
+    \item Compulsory misses = 128 (one per 8B block)
+    \item Computation: (2560 - 128)/2560 = 0.95
+    \item Improved due to better spatial locality exploitation
+\end{itemize}
+
+\subsubsection{512B Cache, 16B Blocks, Direct Mapping}
+\begin{itemize}
+    \item Hit rate = 97.5\%
+    \item Compulsory misses = 64 (one per 16B block)
+    \item Computation: (2560 - 64)/2560 = 0.975
+    \item Further improvement from larger blocks
+\end{itemize}
+
+\subsubsection{1024B Cache Analysis}
+For 4B blocks:
+\begin{equation*}
+    \text{Hit Rate} = \frac{\text{Total Accesses} - \text{Compulsory Misses}}{\text{Total Accesses}} = \frac{2560 - 256}{2560} = 0.9
+\end{equation*}
+
+For 8B blocks:
+\begin{equation*}
+    \text{Hit Rate} = \frac{2560 - 128}{2560} = 0.95
+\end{equation*}
+
+For 16B blocks:
+\begin{equation*}
+    \text{Hit Rate} = \frac{2560 - 64}{2560} = 0.975
+\end{equation*}
+
+\subsection{Perfect Hit Rate Analysis}
+A perfect hit rate (1.0) cannot be achieved because:
+\begin{itemize}
+    \item Compulsory misses are unavoidable for first access
+    \item Even with optimal:
+    \begin{itemize}
+        \item Sequential access pattern
+        \item Large enough cache (1024B)
+        \item Larger block sizes (16B)
+    \end{itemize}
+    \item Best achievable rate is 97.5\% with current parameters
+    \item Would need prefetching or warm-up phase to eliminate compulsory misses
+\end{itemize}
+
+\subsection{Key Findings}
+\begin{itemize}
+    \item Row-major ordering dramatically improves hit rate from 0\% to 90-97.5\%
+    \item Larger block sizes benefit sequential access pattern
+    \item Cache size less important than access pattern and block size
+    \item Compulsory misses set upper limit on achievable hit rate
+\end{itemize}
+
+\end{document} 
